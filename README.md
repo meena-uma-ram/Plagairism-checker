@@ -26,6 +26,17 @@ FOUND: this text is present in the database.
           https://en.wikipedia.org/wiki/Python_(programming_language)
 ```
 
+## Web page
+
+```bash
+python3 server.py
+```
+
+Then open <http://127.0.0.1:8000> in your browser. Paste text and click **Check** to see whether it's
+in the database (and, if you tick the box, on the web), with links to each match. You can also add
+sources and see what's in the database. The page (`index.html`) needs `server.py` running; opening
+the file on its own won't work. For web search, set your Google keys (see below) before starting the server.
+
 ## Commands
 
 | Command | What it does |
