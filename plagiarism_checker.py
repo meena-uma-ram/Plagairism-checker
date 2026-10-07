@@ -54,11 +54,12 @@ class Match:
 class Report:
     found: bool
     matches: list
+    where: str = "in the database"
 
     def __str__(self):
         if not self.found:
-            return "NOT FOUND: this text was not found in the database."
-        lines = ["FOUND: this text is present in the database."]
+            return f"NOT FOUND: this text was not found {self.where}."
+        lines = [f"FOUND: this text is present {self.where}."]
         for m in self.matches:
             lines.append(f"  {m.score:5.1f}%  {m.title}\n          {m.url}")
         return "\n".join(lines)
@@ -184,6 +185,8 @@ def main(argv=None):
         "--threshold", type=float, default=DEFAULT_THRESHOLD,
         help=f"minimum %% of the text that must match to report a source (default: {DEFAULT_THRESHOLD})",
     )
+    p_check.add_argument("--web", action="store_true", help="also search the web (needs a search API key)")
+    p_check.add_argument("--save", action="store_true", help="with --web: save matching web pages into the database")
 
     sub.add_parser("list", help="list the sources in the database")
 
@@ -200,9 +203,21 @@ def main(argv=None):
                 checker.add_document(row["title"], row["url"], row["content"])
             print(f"Imported {len(rows)} document(s).")
         elif args.command == "check":
-            report = checker.check(_read_text(args), args.threshold)
-            print(report)
-            return 1 if report.found else 0
+            text = _read_text(args)
+            report = checker.check(text, args.threshold)
+            print("Database:", report)
+            found = report.found
+            if args.web:
+                from web_search import SearchError, check_web
+                on_page = checker.add_document if args.save else None
+                try:
+                    web_report = check_web(text, args.threshold, on_page=on_page)
+                except SearchError as e:
+                    print(f"Web: error: {e}", file=sys.stderr)
+                    return 2
+                print("Web:", web_report)
+                found = found or web_report.found
+            return 1 if found else 0
         elif args.command == "list":
             docs = checker.list_documents()
             for doc_id, title, url in docs:
