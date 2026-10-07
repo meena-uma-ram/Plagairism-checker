@@ -208,7 +208,8 @@ def main(argv=None):
             print("Database:", report)
             found = report.found
             if args.web:
-                from web_search import SearchError, check_web
+                from web_search import SearchError, check_web, load_env_file
+                load_env_file()
                 on_page = checker.add_document if args.save else None
                 try:
                     web_report = check_web(text, args.threshold, on_page=on_page)

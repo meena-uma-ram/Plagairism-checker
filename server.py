@@ -10,6 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from plagiarism_checker import DEFAULT_DB, DEFAULT_THRESHOLD, PlagiarismChecker
+from web_search import load_env_file
 
 INDEX = Path(__file__).with_name("index.html")
 MAX_BODY = 5_000_000
@@ -76,10 +77,16 @@ class Handler(BaseHTTPRequestHandler):
         threshold = float(body.get("threshold", DEFAULT_THRESHOLD))
         result = {"database": _report(checker.check(text, threshold))}
         if body.get("web"):
-            from web_search import SearchError, check_web
+            from web_search import SearchError, check_web, make_search
             on_page = checker.add_document if body.get("save") else None
+            keys = body.get("keys") or {}
             try:
-                result["web"] = _report(check_web(text, threshold, on_page=on_page))
+                search = make_search(
+                    keys.get("google_api_key") or None,
+                    keys.get("google_cse_id") or None,
+                    keys.get("brave_api_key") or None,
+                )
+                result["web"] = _report(check_web(text, threshold, search=search, on_page=on_page))
             except SearchError as e:
                 result["web"] = {"error": str(e)}
             except Exception as e:
@@ -94,6 +101,7 @@ def main():
     parser.add_argument("--port", type=int, default=8000)
     args = parser.parse_args()
     Handler.db_path = args.db
+    load_env_file()
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     print(f"Plagiarism checker running at http://{args.host}:{args.port}  (Ctrl+C to stop)")
     try:

@@ -4,7 +4,8 @@ Picks a few distinctive sentences from the text, searches for them with a web
 search API, downloads the result pages and scores each one with the same
 shingle comparison used for the local database.
 
-Supported search providers (set the environment variables for one of them):
+Supported search providers. Supply your own key for one of them, either in a
+.env file (see .env.example), as environment variables, or in the web page:
   - Google Programmable Search:  GOOGLE_API_KEY and GOOGLE_CSE_ID (used first)
   - Brave Search API:            BRAVE_API_KEY
 """
@@ -51,18 +52,45 @@ def google_search(query, api_key, cse_id, count=5):
     return [(r["title"], r["link"]) for r in json.loads(body).get("items", [])]
 
 
-def search_from_env():
-    """Return a search(query) function for whichever provider is configured."""
-    if os.environ.get("GOOGLE_API_KEY") and os.environ.get("GOOGLE_CSE_ID"):
-        key, cx = os.environ["GOOGLE_API_KEY"], os.environ["GOOGLE_CSE_ID"]
-        return lambda q: google_search(q, key, cx)
-    if os.environ.get("BRAVE_API_KEY"):
-        key = os.environ["BRAVE_API_KEY"]
-        return lambda q: brave_search(q, key)
+def load_env_file(path=os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")):
+    """Load KEY=value lines from a .env file into the environment.
+
+    Existing environment variables win. The .env file is git-ignored, so keys
+    put there are never committed.
+    """
+    try:
+        lines = open(path, encoding="utf-8").read().splitlines()
+    except FileNotFoundError:
+        return
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
+def make_search(google_api_key=None, google_cse_id=None, brave_api_key=None):
+    """Return a search(query) function using the given keys.
+
+    Keys not given are taken from the environment (or a .env file).
+    Google is used when both of its keys are available, otherwise Brave.
+    """
+    google_api_key = google_api_key or os.environ.get("GOOGLE_API_KEY")
+    google_cse_id = google_cse_id or os.environ.get("GOOGLE_CSE_ID")
+    brave_api_key = brave_api_key or os.environ.get("BRAVE_API_KEY")
+    if google_api_key and google_cse_id:
+        return lambda q: google_search(q, google_api_key, google_cse_id)
+    if brave_api_key:
+        return lambda q: brave_search(q, brave_api_key)
     raise SearchError(
-        "No web search provider configured. Set GOOGLE_API_KEY and GOOGLE_CSE_ID, "
-        "or BRAVE_API_KEY. See README."
+        "No web search API key set. Add your Google API key and Search engine ID "
+        "(or a Brave key) in the page's API keys section or in a .env file. See README."
     )
+
+
+def search_from_env():
+    return make_search()
 
 
 class _TextExtractor(HTMLParser):

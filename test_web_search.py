@@ -2,7 +2,10 @@ import os
 import unittest
 from unittest import mock
 
-from web_search import SearchError, check_web, html_to_text, pick_queries, search_from_env
+import tempfile
+
+from web_search import (SearchError, check_web, html_to_text, load_env_file, make_search,
+                        pick_queries, search_from_env)
 
 PAGE_TEXT = (
     "Plagiarism is the representation of another person's language, thoughts, "
@@ -58,6 +61,23 @@ class WebSearchTest(unittest.TestCase):
                 mock.patch("web_search.google_search", return_value=[("t", "u")]) as g:
             self.assertEqual(search_from_env()("q"), [("t", "u")])
             g.assert_called_once_with("q", "g", "c")
+
+    def test_make_search_prefers_passed_keys_over_env(self):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_KEY": "env", "GOOGLE_CSE_ID": "envcx"}, clear=True), \
+                mock.patch("web_search.google_search", return_value=[]) as g:
+            make_search("mine", "mycx")("q")
+            g.assert_called_once_with("q", "mine", "mycx")
+
+    def test_load_env_file_does_not_override_existing(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".env", delete=False) as f:
+            f.write('# comment\nGOOGLE_API_KEY="from-file"\nBRAVE_API_KEY=brave\n')
+        try:
+            with mock.patch.dict(os.environ, {"BRAVE_API_KEY": "already"}, clear=True):
+                load_env_file(f.name)
+                self.assertEqual(os.environ["GOOGLE_API_KEY"], "from-file")
+                self.assertEqual(os.environ["BRAVE_API_KEY"], "already")
+        finally:
+            os.unlink(f.name)
 
 
 if __name__ == "__main__":

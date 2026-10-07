@@ -27,7 +27,7 @@
   .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px;
           padding: 20px; margin-bottom: 20px; }
   label { display: block; font-weight: 600; margin-bottom: 6px; font-size: .95rem; }
-  textarea, input[type=text], input[type=url], input[type=number] {
+  textarea, input[type=text], input[type=url], input[type=number], input[type=password] {
     width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
     background: var(--bg); color: var(--text); font: inherit; }
   textarea { min-height: 180px; resize: vertical; }
@@ -76,6 +76,26 @@
   </form>
 
   <div class="card" id="results"></div>
+
+  <div class="card">
+    <details id="keys-box">
+      <summary>Web search API keys <span class="muted" id="keys-state"></span></summary>
+      <form id="keys-form" style="margin-top:14px" autocomplete="off">
+        <p class="muted" style="margin-top:0">
+          To search the web, use your own key. Enter a Google API key and Search engine ID
+          (or a Brave Search key). Keys are sent only to this checker running on your computer.
+          If you leave these empty, keys from the server's <code>.env</code> file are used.
+        </p>
+        <div class="field"><label for="google-key">Google API key</label><input type="password" id="google-key"></div>
+        <div class="field"><label for="google-cx">Google Search engine ID</label><input type="text" id="google-cx"></div>
+        <div class="field"><label for="brave-key">Brave Search API key (optional, used if Google isn't set)</label><input type="password" id="brave-key"></div>
+        <div class="row" style="margin-top:0">
+          <label><input type="checkbox" id="remember-keys"> Remember on this browser</label>
+          <button type="button" id="clear-keys">Clear keys</button>
+        </div>
+      </form>
+    </details>
+  </div>
 
   <div class="card">
     <details>
@@ -148,7 +168,7 @@ $("check-form").addEventListener("submit", async (e) => {
   try {
     const data = await api("/api/check", {
       text: $("text").value, threshold: Number($("threshold").value) || 30,
-      web: $("web").checked, save: $("save").checked,
+      web: $("web").checked, save: $("save").checked, keys: readKeys(),
     });
     out.replaceChildren(...renderReport("Database", "in the database", data.database));
     if (data.web) out.append(...renderReport("Web", "on the web", data.web));
@@ -174,6 +194,44 @@ $("add-form").addEventListener("submit", async (e) => {
     status.textContent = err.message;
   }
 });
+
+const KEY_FIELDS = { google_api_key: "google-key", google_cse_id: "google-cx", brave_api_key: "brave-key" };
+const STORE = "plagiarism-checker-keys";
+
+function readKeys() {
+  const keys = {};
+  for (const [name, id] of Object.entries(KEY_FIELDS)) keys[name] = $(id).value.trim();
+  return keys;
+}
+
+function saveKeys() {
+  const keys = readKeys();
+  const any = Object.values(keys).some(Boolean);
+  $("keys-state").textContent = any ? "· set" : "";
+  try {
+    if ($("remember-keys").checked && any) localStorage.setItem(STORE, JSON.stringify(keys));
+    else localStorage.removeItem(STORE);
+  } catch {}
+}
+
+function loadKeys() {
+  try {
+    const keys = JSON.parse(localStorage.getItem(STORE) || "null");
+    if (!keys) return;
+    for (const [name, id] of Object.entries(KEY_FIELDS)) $(id).value = keys[name] || "";
+    $("remember-keys").checked = true;
+    $("keys-state").textContent = "· set";
+  } catch {}
+}
+
+$("keys-form").addEventListener("input", saveKeys);
+$("keys-form").addEventListener("change", saveKeys);
+$("clear-keys").addEventListener("click", () => {
+  for (const id of Object.values(KEY_FIELDS)) $(id).value = "";
+  $("remember-keys").checked = false;
+  saveKeys();
+});
+loadKeys();
 
 async function loadSources() {
   try {

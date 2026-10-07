@@ -62,7 +62,13 @@ downloads the top results and scores each page the same way as the database.
    **Search engine ID** (the `cx` value).
 2. In the [Google Cloud Console](https://console.cloud.google.com/), enable the
    **Custom Search API** and create an **API key** (APIs & Services → Credentials).
-3. Set the keys and run:
+3. Give the checker **your own** key, in one of these ways:
+   - **On the web page:** open **Web search API keys**, paste your API key and Search engine ID, and
+     tick **Also search the web**. Tick **Remember on this browser** to keep them for next time.
+     **Clear keys** removes them.
+   - **In a `.env` file:** copy `.env.example` to `.env` and fill in your keys. The page and the
+     command line both use it, and git ignores `.env`, so it's never committed.
+   - **As environment variables:**
 
 ```bash
 export GOOGLE_API_KEY="your-api-key"
@@ -70,13 +76,15 @@ export GOOGLE_CSE_ID="your-search-engine-id"
 python3 plagiarism_checker.py check --web --file essay.txt
 ```
 
+No API key is included in this project. Each person uses their own.
+
 Google gives 100 free queries a day; each check uses up to 3. Google has been limiting
 whole-web search for new search engines, so check the current terms when you set it up.
 
-**Alternative: Brave Search API.** Get a key at <https://brave.com/search/api/> and set
-`BRAVE_API_KEY` instead. If both are set, Google is used.
+**Alternative: Brave Search API.** Get a key at <https://brave.com/search/api/> and enter it
+on the page, or set `BRAVE_API_KEY` in `.env`. If both are set, Google is used.
 
-Keep your keys out of git (don't put them in files you commit).
+Keep your keys out of git: put them only in `.env` or on the page, never in files you commit.
 
 ## How it works
 
